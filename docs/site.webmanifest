@@ -1,0 +1,21 @@
+{
+  "name": "Indiana Eats",
+  "short_name": "IN Eats",
+  "description": "Tenderloins, pie & drive-ins: a guide to 13,476 Indiana restaurants.",
+  "start_url": "/indiana-eats/",
+  "display": "browser",
+  "background_color": "#fbf7ee",
+  "theme_color": "#1f3a5f",
+  "icons": [
+    {
+      "src": "/indiana-eats/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/indiana-eats/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
