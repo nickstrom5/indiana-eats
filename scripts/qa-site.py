@@ -124,7 +124,7 @@ OVERCLAIMS = [
     r"\b(?:search|browse|see|map)\s+(?:all|every)\s+(?:of\s+)?(?:the\s+)?\d[\d,]*\b",    # "search all 52,573" (no noun, same claim)
     r"\b(?:confirmed|checked|verified)\s+open\b",            # the research dates show when we checked a source, not that it's open now
     r"\b(?:worst|dirtiest|grossest|filthiest)\b",            # no worst lists, anywhere
-    # no grade of ours, ever (Indiana shows no inspection result at all)
+    # no grade of ours, ever (Indiana shows only Vanderburgh's and Porter's counts of violations, as published)
     r"\bour\s+(?:own\s+)?(?:grade|score|rating)\b|\bgrade(?:d|s)?\s+by\s+(?:us|old dominion eats)\b",
 ]
 # city-page words -> the section that backs them

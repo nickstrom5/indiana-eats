@@ -14,6 +14,12 @@ enum Links {
     static let licenses = URL(string: "https://www.in.gov/atc/")!
     /// The state's list of Indiana's local health departments: each county's own inspection page or contact (linked, never read)
     static let inspections = URL(string: "https://www.in.gov/localhealth/")!
+    /// the two counties whose published inspection reports are read (Nick's yes, 2026-11-07)
+    static let vanderburghReports = URL(string: "https://vanderburghhealth.org/food-inspection-report/")!
+    static let porterReports = URL(string: "https://www.in.gov/localhealth/portercounty/food-service-division/food-service-inspections")!
+    static func countyReports(_ jurisdiction: String) -> URL? {
+        jurisdiction.hasPrefix("Vanderburgh") ? vanderburghReports : jurisdiction.hasPrefix("Porter") ? porterReports : nil
+    }
     static let supportEmail = "nick@eatsranked.com"
 
     static var correctionEmail: URL {

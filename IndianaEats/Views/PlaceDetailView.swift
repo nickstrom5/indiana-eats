@@ -179,9 +179,10 @@ struct PlaceDetailView: View {
         }
     }
 
-    /// Indiana's local health departments publish inspections only through their own search pages or reports, and none posts a grade,
-    /// so no result is shown; the link goes to the state's list of local health departments. A county whose results are added as data
-    /// later would show them in its own words, dated, never turned into a grade.
+    /// Indiana's local health departments publish inspections through their own search pages or reports, and none posts a grade. Two
+    /// counties' reports are read (Vanderburgh's weekly and Porter's monthly, Nick's yes 2026-11-07): each inspection's date and the
+    /// number of violations the county lists, in its own words, never turned into a score or grade. Elsewhere the link goes to the
+    /// state's list of local health departments.
     private var inspections: some View {
         section("Health inspections") {
             VStack(alignment: .leading, spacing: 8) {
@@ -192,9 +193,16 @@ struct PlaceDetailView: View {
                             kv(DayFormat.text(v.date) ?? v.date, model.resultText(v.result) ?? "—")
                         }
                     }
-                    Text(jurisdictionNote(jurisdiction: model.jurisdictionName(ins.jurisdiction) ?? "The health department")).font(.caption).foregroundStyle(Theme.muted)
+                    let jur = model.jurisdictionName(ins.jurisdiction) ?? "The health department"
+                    Text(jurisdictionNote(jurisdiction: jur)).font(.caption).foregroundStyle(Theme.muted)
+                    if let url = Links.countyReports(jur) {
+                        Link(destination: url) {
+                            Label("\(jur)'s inspection reports", systemImage: "arrow.up.right.square").font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(Theme.green)
+                    }
                 } else {
-                    Text("Indiana's 95 local health departments inspect restaurants and publish the reports on their own sites or on request; none posts a grade, so this app shows no result here and computes no grade.")
+                    Text("Indiana's 95 local health departments inspect restaurants and publish the reports on their own sites or on request; none posts a grade. Results show only where Vanderburgh or Porter County's published reports were matched to a place, so none is shown here, and this app computes no grade.")
                         .font(.caption).foregroundStyle(Theme.muted)
                     Link(destination: Links.inspections) {
                         Label("Find the county's health department", systemImage: "arrow.up.right.square").font(.subheadline.weight(.semibold))
@@ -207,8 +215,8 @@ struct PlaceDetailView: View {
 
     private func jurisdictionNote(jurisdiction: String) -> String {
         let through = model.inspectionsThrough[jurisdiction].flatMap { DayFormat.text($0) }
-        return "\(jurisdiction)'s own result for each inspection, from its published records" + (through.map { " (inspections through \($0))" } ?? "")
-            + ". It's the health department's word, not a grade, and an older result may not reflect the place today."
+        return "Official results: the number of violations \(jurisdiction) lists for each inspection in its published reports" + (through.map { " (inspections through \($0))" } ?? "")
+            + ". It's the county's own count, not a score or a grade, and an older result may not reflect the place today."
     }
 
     private var records: some View {
@@ -243,7 +251,9 @@ struct PlaceDetailView: View {
 
     /// Where the records come from; a missing record is unknown, not "no license".
     private var recordsNote: String {
-        "Indiana publishes no open list of its restaurants we may read, and the Alcohol and Tobacco Commission's permits sit behind a search form we don't use, so this app shows no license and no alcohol status: \u{2014} means unknown, never \"no\"."
+        detail?.licenses.isEmpty == false
+            ? "Matched to a county health department's published inspection reports. Indiana publishes no open list of its restaurants, and the Alcohol and Tobacco Commission's permits sit behind a search form we don't use, so alcohol status is unknown: \u{2014} means unknown, never \"no\"."
+            : "Indiana publishes no open list of its restaurants we may read, and the Alcohol and Tobacco Commission's permits sit behind a search form we don't use, so this app shows no license and no alcohol status: \u{2014} means unknown, never \"no\"."
     }
 
     private var listingNote: String {
@@ -255,7 +265,7 @@ struct PlaceDetailView: View {
         case .licensed:
             return place.source == "official"
                 ? "From an official list. The open map data didn't have it, so it's placed on its listed street address."
-                : "Matched to an official list."
+                : "Matched to a county health department's published inspection reports (Vanderburgh or Porter County)."
         case .confirmed, .listing:
             let base = place.tier == .confirmed
                 ? "A high-confidence listing in Overture's open map data."

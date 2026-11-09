@@ -286,12 +286,15 @@
     behind.forEach((el) => { el.inert = modal; });
   }
 
-  // no Indiana health department publishes results as data: every place links the state's list of local health departments (a state
-  // whose data has a result shows it in the jurisdiction's own words, dated, never a grade)
+  // Vanderburgh's and Porter's published reports: the county's own count of violations for the latest inspection, dated, never a
+  // grade, with a link to the county's reports; elsewhere every place links the state's list of local health departments
+  const REPORTS = {"Vanderburgh County Health Department": "https://vanderburghhealth.org/food-inspection-report/",
+    "Porter County Health Department": "https://www.in.gov/localhealth/portercounty/food-service-division/food-service-inspections"};
   const inspectionSection = (d, p) => section("Health inspections", Array.isArray(d.ins) && d.ins.length >= 2
     ? kv("Latest inspection", `${d.ins[0]} · ${fmtDate(d.ins[1])}`)
-      + `<p class="ex-fine">The health department's own result for its latest inspection: its word, not a grade, and an older result may not reflect the place today.</p>`
-    : `<p class="ex-fine">Indiana's 95 local health departments inspect restaurants and publish the reports on their own sites or on request; none posts a grade, so this site shows no result here and computes no grade.</p><p><a href="${DPH_URL}" rel="noopener" target="_blank">Find the county's health department</a></p>`);
+      + `<p class="ex-fine">Official results: the number of violations ${esc(d.ins[2] || "the county health department")} lists for the inspection in its published reports. It's the county's own count, not a score or a grade, and an older result may not reflect the place today.</p>`
+      + (REPORTS[d.ins[2]] ? `<p><a href="${REPORTS[d.ins[2]]}" rel="noopener" target="_blank">${esc(d.ins[2])}'s inspection reports</a></p>` : "")
+    : `<p class="ex-fine">Indiana's 95 local health departments inspect restaurants and publish the reports on their own sites or on request; none posts a grade. Results show only where Vanderburgh or Porter County's published reports were matched to a place, so none is shown here, and this site computes no grade.</p><p><a href="${DPH_URL}" rel="noopener" target="_blank">Find the county's health department</a></p>`);
 
   function openPlace(p, push = true) {
     const panel = $("#ex-panel");

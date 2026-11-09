@@ -1,13 +1,19 @@
 # Indiana sources (checked 2026-11-06)
 
-## Official data: none used (Nick's calls)
+## Official data used (Nick's yes, 2026-11-07)
 Indiana has no statewide inspection data and no official grade: IDOH supports 95 local health departments (the 92 counties plus Gary,
-East Chicago and Fishers). The app shows no inspection result and links the state's list (in.gov/localhealth) from every place.
-- **Vanderburgh County** (vanderburghhealth.org/food-inspection-report/; robots allows it; no stated terms): weekly "media report" PDFs,
-  May 3 – Oct 17, 2026, an "-all" file (facility, address, inspection date, number of violations, comments) and a "-viol" file (one row
-  per violation, P/Pf/Core, no date). PDFKit text extraction wraps the columns (a name or address can spill onto two lines), so a parse
-  needs character positions. Not loaded; about 25 weeks are posted. A "number of violations" isn't a grade and would be shown as such.
-- **Porter County** (in.gov/localhealth/portercounty): monthly PDFs, one row per violation (from the prompt; not opened this pass).
+East Chicago and Fishers). Every place links the state's list (in.gov/localhealth); two counties' published reports are read:
+- **Vanderburgh County** (vanderburghhealth.org/food-inspection-report/; robots.txt allows all but /wp-admin/; no stated terms): 24 weekly
+  "media report" PDFs, May 3 – Oct 17, 2026. The "-all" files (Facility Type = 'Restaurant': facility, address, inspection date, number
+  of violations, comments) are read with pdfplumber's table extraction (`pipeline/fetch_county_pdfs.py`, `pipeline/county_reports.py`);
+  the "-viol" files aren't needed. 412 inspections.
+- **Porter County** (in.gov/localhealth/portercounty/food-service-division/food-service-inspections; in.gov's robots.txt has no rules):
+  monthly PDFs, Aug 2025 – Sep 2026, in three layouts (2026 combined reports with "Number of Citations" on each inspection's first row,
+  2025/early-2026 inspection lists with "Number of Violations", August 2025 as text lines). October 2025's inspection list has no text
+  layer (unreadable without OCR) and is left out; temporary-event inspections are dropped. 1,277 inspections.
+- Shown as published: each inspection's date and the county's own count ("2 violations"), never a score or grade; the rows include
+  schools and stores, so they only attach to listings they match (official.py `load_counties`, kind "inspected"). One request at a
+  time, 3 seconds apart, a generic client name (EatsRankedData/1.0), no email.
 - **Hamilton County** ArcGIS layer of 1,058 permitted food facilities (gis1.hamiltoncounty.in.gov): no stated terms; not used.
 - **Search-only, never scraped:** Marion County (hhcwebfood.hhcorp.org), Allen County (Cloudflare), Tippecanoe; Fishers and Elkhart
   answer scripts with 403 (prompt).

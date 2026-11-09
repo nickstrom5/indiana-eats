@@ -1,34 +1,34 @@
 {
  "schema": 1,
- "version": "2026-11-06.3",
- "records_through": "2026-11-06",
- "published": "2026-11-06T18:55:41Z",
+ "version": "2026-11-07.2",
+ "records_through": "2026-11-07",
+ "published": "2026-11-07T15:15:57Z",
  "min_app_build": 1,
  "files": {
   "detail-indiana": {
-   "path": "detail-indiana-756bd76267dc.json",
-   "sha256": "756bd76267dc315989c0995e28809715bd54f1ee7dfa4f7949c5ee62c5207f3f",
-   "bytes": 936965,
-   "rows": 13743
+   "path": "detail-indiana-0a285ecd1563.json",
+   "sha256": "0a285ecd1563aec390e46c9f4cd33bb47e8461def30c78bef42df3a68c09e9c5",
+   "bytes": 1016696,
+   "rows": 13820
   },
   "places": {
-   "path": "places-5e1ebb96ec6b.json",
-   "sha256": "5e1ebb96ec6b04dd5ebcbb13adbe3e59ed2984352a87309ce3a9f805b624ceb8",
-   "bytes": 2237159,
-   "rows": 13985
+   "path": "places-e808e40b2bf9.json",
+   "sha256": "e808e40b2bf9e9711684f0a19c65efcccff30e4ab6e9c3dafde9c7ecb1128331",
+   "bytes": 2260892,
+   "rows": 14057
   }
  },
  "counts": {
-  "places": 13985,
+  "places": 14057,
   "files": 2,
-  "bytes": 3174124,
-  "restaurants": 13476
+  "bytes": 3277588,
+  "restaurants": 13543
  },
  "previous": {
-  "version": "2026-11-06.2",
+  "version": "2026-11-07.1",
   "files": {
-   "detail-indiana": "detail-indiana-d1372423fa16.json",
-   "places": "places-5e1ebb96ec6b.json"
+   "detail-indiana": "detail-indiana-2d04c1df3434.json",
+   "places": "places-e0a28ac3d2d2.json"
   }
  }
 }

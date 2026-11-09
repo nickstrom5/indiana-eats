@@ -1,10 +1,11 @@
-"""Official records for Indiana -> one table of licensed food businesses (playbook/12-sources.md). Empty for now.
+"""Official records for Indiana -> one table of inspected food businesses (playbook/12-sources.md).
 
 Indiana has no statewide inspection data and no official grade: IDOH supports 95 local health departments (the 92 counties plus Gary,
 East Chicago and Fishers), and none found publishes a score, grade or placard. Marion County's portal (hhcwebfood.hhcorp.org), Allen
-County's (Cloudflare), Tippecanoe's and Hamilton County's are search-only: linked, never read. Vanderburgh County posts weekly "media
-report" PDFs (name, address, date, number of violations) and Porter County monthly PDFs (one row per violation); neither states terms,
-and their wrapped columns need a positional parse: not loaded in this pass (a lead for Nick). Hamilton County's ArcGIS layer of 1,058
+County's (Cloudflare), Tippecanoe's and Hamilton County's are search-only: linked, never read. With Nick's yes (2026-11-07) two
+counties' published reports are read (fetch_county_pdfs.py, county_reports.py): Vanderburgh County's weekly "media report" PDFs and
+Porter County's monthly ones, each inspection with its date, purpose and the number of violations the county lists, shown as published
+(never a score or grade). Hamilton County's ArcGIS layer of 1,058
 permitted facilities states no terms: not used. The ATC's alcohol permits sit behind a reCAPTCHA search: not used, so "Serves alcohol" is
 unknown everywhere.
 
@@ -139,9 +140,50 @@ def _ms(v):
     return d.date().isoformat()
 
 
+COUNTY_FILE = os.path.join(OFF, "county_inspections.json")
+COUNTY_JUR = {"Vanderburgh County": "vanderburgh", "Porter County": "porter"}
+COUNTY_HD = {"vanderburgh": "Vanderburgh County Health Department", "porter": "Porter County Health Department"}
+
+
+def violations(n):
+    """The county's own count, in words: '0 violations', '1 violation', '3 violations'."""
+    return f"{n} violation" + ("" if n == 1 else "s")
+
+
+def load_counties():
+    """One record per facility and address, with each of its inspections: [date, 'N violations', purpose, id], latest first. The
+    reports cover schools, stores and clubs too, so these rows only ever attach to a listing they match (kind "inspected")."""
+    if not os.path.exists(COUNTY_FILE):
+        return []
+    by = {}
+    for i, r in enumerate(json.load(open(COUNTY_FILE))["rows"]):
+        jur = COUNTY_JUR[r["county"]]
+        name = re.sub(r"\s+", " ", r["name"]).strip()
+        addr = _addr(r["addr"])
+        if not name or not addr:
+            continue
+        k = (jur, name.upper(), addr.upper())
+        rec = by.setdefault(k, {"jur": jur, "name": name, "addr": addr, "city": _city(r.get("city")), "zip": _zip(r.get("zip")),
+                                "county": r["county"], "insp": []})
+        rec["city"] = rec["city"] or _city(r.get("city")); rec["zip"] = rec["zip"] or _zip(r.get("zip"))
+        rec["insp"].append([r["date"], violations(r["n"]), r.get("purpose") or "Inspection", f"{jur}-{i}"])
+    rows = []
+    for n_, ((jur, _, _), r) in enumerate(sorted(by.items())):
+        num, st = street_key(r["addr"])
+        rows.append({"jur": jur, "lic": f"{jur}-{n_}", "name": r["name"], "dba": r["name"], "holder": None, "keys": _names(r["name"]),
+                     "addr": r["addr"], "city": r["city"], "zip": r["zip"], "num": num, "street": st, "lat": None, "lon": None,
+                     "kind": "inspected", "active": True, "ltype": COUNTY_HD[jur] + " inspection report", "issued": None, "drinks": None,
+                     "county": r["county"], "insp": sorted(r["insp"], key=lambda v: v[0], reverse=True)})
+    return rows
+
+
 def load():
-    """No official list a script may read in Indiana yet (see the docstring): an empty table of the right shape."""
-    df = pd.DataFrame({c: pd.Series(dtype=object) for c in COLUMNS})
+    """Vanderburgh and Porter counties' inspections (see the docstring)."""
+    rows = load_counties()
+    df = pd.DataFrame(rows) if rows else pd.DataFrame({c: pd.Series(dtype=object) for c in COLUMNS})
+    for c_ in COLUMNS:
+        if c_ not in df.columns:
+            df[c_] = None
     df["lat"] = df["lat"].astype(float); df["lon"] = df["lon"].astype(float); df["active"] = df["active"].astype(bool)
     df["biz"] = np.arange(len(df))
     return df

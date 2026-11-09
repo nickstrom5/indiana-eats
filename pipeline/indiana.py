@@ -133,7 +133,7 @@ WHOLESALE DISTRICT CIRCLE CENTRE MONUMENT CIRCLE FAIRGROUNDS WEST SIDE EAST SIDE
 EAST END WEST END RIVERFRONT CROSSING CENTER CENTRE MARKET PLACE TOWNE COMMONS POINTE PARKWAY MALL PLAZA SQUARE VILLAGE STATION HISTORIC""".split())
 LEGAL_W = {"LLC", "INC", "CORP", "CORPORATION", "LTD", "CO", "COMPANY", "GROUP", "HOLDINGS", "HOLDING", "HOSPITALITY", "ENTERPRISES",
            "ENTERPRISE", "INVESTMENTS", "INVESTMENT", "PROPERTIES", "MANAGEMENT", "VENTURES", "PARTNERS", "DBA", "THE"}
-NOISE_W = {w for c in o.city.dropna().unique() for w in norm_name(canon_city(c) or c).split()} | NEIGHBORHOODS | LEGAL_W | {"INDIANA", "IN", "INDY", "HOOSIER"}
+NOISE_W = {w for c in o.city.dropna().unique() for w in norm_name(canon_city(c) or c).split()} | NEIGHBORHOODS | LEGAL_W | {"INDIANA", "IN", "INDY", "HOOSIER"} | {"DUNELAND", "DUNES"}
 
 
 def core(k):
@@ -1422,23 +1422,31 @@ o.loc[o.honored | o.hc, "venue"] = False
 o["alc"] = np.nan; o["alc_n"] = np.nan
 print("tags:", {t_: int(o["t_" + t_].sum()) for t_ in ("tenderloin", "driveins", "pie", "amish", "oldest")})
 
-# ---------------------------------------------------------------- inspections: none to show in Indiana
-# Indiana's local health departments publish inspections only through search pages or PDFs (official.py), so no result is shown; the
-# app and site link the state's list of local health departments. The block below stays (results in the jurisdiction's own words,
-# dated, never a grade): a county whose results are loaded later goes in INSJ and its loader fills F.insp.
-RES = sorted({v[1] for hs in F.insp.dropna() for v in (hs or []) if v[1]})
-INSJ = []
+# ---------------------------------------------------------------- inspections: Vanderburgh and Porter counties' reports
+# Two county health departments publish their inspections as reports (official.py load_counties, Nick's yes 2026-11-07): each result
+# is the county's own count of violations for that inspection ("2 violations"), dated, with its purpose; never a score or a grade.
+# Elsewhere the app and site link the state's list of local health departments.
+RES = sorted({v[1] for hs in F.insp.dropna() for v in (hs or []) if v[1]}, key=lambda s_: (int(re.match(r"\d+", s_).group()), s_))
+INS_OF = dict(official.COUNTY_HD)
+INSJ = list(INS_OF.values())
 INS_THROUGH = {}
 cols_i = ["in_res", "in_pts", "in_date", "in_type", "in_n", "in_rr", "in_cl", "in_hist", "in_items", "in_jur"]
 for c_ in cols_i:
     o[c_] = None
 o["in_hist"] = o["in_hist"].astype(object)
-mont_ix = [[j for j in ix if F.jur.iat[j] in INSJ] for ix in o.lic_ix]
-span_two = []
+mont_ix = [[j for j in ix if F.jur.iat[j] in INS_OF] for ix in o.lic_ix]
+span_two, ins_pairs = [], []
+# a result belongs to the county its health department inspects: a record placed or matched across a county line never lends its
+# inspections to a place there (a Porter County record once reached a Hammond place in Lake County)
+AUTH_CTY = {"vanderburgh": "Vanderburgh County", "porter": "Porter County"}
+def auth_cty(j):
+    return AUTH_CTY.get(F.jur.iat[j])
 for i_, js in enumerate(mont_ix):
+    js = [j for j in js if auth_cty(j) == o.county.iat[i_]]
     if not js:
         continue
     seen = {}
+    jur_ = INS_OF[F.jur.iat[js[0]]]
     for j in sorted(js, key=lambda j: -int(re.sub(r"\D", "", F.lic.iat[j]) or 0)):   # newer registration first
         for d, res, typ, num in F.insp.iat[j] or []:
             if num in seen:
@@ -1450,14 +1458,18 @@ for i_, js in enumerate(mont_ix):
     if not visits:
         continue
     d, res, typ = visits[0]
+    ins_pairs.append(f"{o.name_out.iat[i_]} | {o.street.iat[i_]} || " + " ; ".join(f"{F['name'].iat[j]} | {F.addr.iat[j]}" for j in js))
     o.at[o.index[i_], "in_res"] = res; o.at[o.index[i_], "in_date"] = d; o.at[o.index[i_], "in_type"] = typ
-    o.at[o.index[i_], "in_n"] = len(visits); o.at[o.index[i_], "in_jur"] = INSJ[0]
+    o.at[o.index[i_], "in_n"] = len(visits); o.at[o.index[i_], "in_jur"] = jur_
     o.at[o.index[i_], "in_rr"] = sum(1 for v in visits if re.search(r"(?i)follow", v[2] or ""))
     o.at[o.index[i_], "in_cl"] = sum(1 for v in visits if v[1].startswith("Closed"))
     o.at[o.index[i_], "in_hist"] = [(v[0], v[1], None, v[2]) for v in visits]
-if o.in_date.notna().any():
-    INS_THROUGH[INSJ[0]] = max(d for d in o.in_date.dropna())
+for jn in INSJ:
+    ds = o.loc[o.in_jur.eq(jn), "in_date"].dropna()
+    if len(ds):
+        INS_THROUGH[jn] = max(ds)
 QA_DEBUG["inspection_number_two_dates"] = span_two[:200]
+QA_DEBUG["inspection_pairs"] = ins_pairs   # place | street || the record(s) its result comes from (review list)
 print("inspection results attached:", int(o.in_res.notna().sum()), o.in_res.value_counts().to_dict(),
       "| inspection numbers on two dates:", len(span_two))
 
@@ -1726,7 +1738,7 @@ def web_home(w):
 
 
 # the label each official list shows on a place, and the lists whose record numbers are shown; none in Indiana yet
-LIC_SRC = {}
+LIC_SRC = {"vanderburgh": "Vanderburgh County inspection report", "porter": "Porter County inspection report"}
 LIC_ID_JUR = ()
 
 
@@ -1743,7 +1755,7 @@ def lic_list(ix):
 
 
 COUNTIES = sorted(o.county.dropna().unique().tolist())
-JUR = {}   # official list -> its number in the app's data
+JUR = {"vanderburgh": 1, "porter": 2}   # official list -> its number in the app's data
 o["jur_n"] = [JUR.get(F.jur.iat[int(j)], 0) if j == j else 0 for j in o.off]
 SRCS = ["official", "meta", "AllThePlaces", "DAC", "research", "BrightQuery", "Foursquare", "Microsoft"]
 meta_common = {"generated": TODAY, "overture_release": "2026-10-21.0", "inspections_through": INS_THROUGH,

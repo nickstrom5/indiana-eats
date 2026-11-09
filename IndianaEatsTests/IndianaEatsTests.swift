@@ -154,7 +154,13 @@ final class IndianaEatsTests: XCTestCase {
         XCTAssertEqual(m.bibCount, 0, "no MICHELIN Guide covers Indiana")
         XCTAssertTrue(m.places.allSatisfy { $0.michelin == .none })
         XCTAssertEqual(m.alcoholLicenseCount, 0, "the ATC's permits aren't used: unknown everywhere, never no")
-        XCTAssertTrue(m.places.allSatisfy { $0.inspection == nil }, "no Indiana health department publishes results as data")
+        // Vanderburgh's and Porter's published reports (Nick's yes, 2026-11-07): the county's own count of violations, dated, only there
+        let inspected = m.places.filter { $0.inspection != nil }
+        XCTAssertGreaterThan(inspected.count, 300, "Vanderburgh's and Porter's results are attached")
+        XCTAssertTrue(inspected.allSatisfy { ["Vanderburgh County", "Porter County"].contains($0.county ?? "") }, "results only where those counties publish them")
+        XCTAssertTrue(m.inspectionResults.allSatisfy { $0.range(of: #"^\d+ violations?$"#, options: .regularExpression) != nil },
+                      "every result is the county's own count of violations: never a score or a grade")
+        XCTAssertEqual(Set(m.inspectionJurisdictions), ["Vanderburgh County Health Department", "Porter County Health Department"])
         XCTAssertEqual(Set(m.places.map(\.id)).count, m.places.count, "ids are unique")
         for g in Guide.allCases where g.tag != nil {
             XCTAssertTrue(m.places.filter(g.includes).allSatisfy(\.handChecked), "\(g.title) lists only hand-checked places")
@@ -179,7 +185,8 @@ final class IndianaEatsTests: XCTestCase {
             let url = try XCTUnwrap(Bundle.main.url(forResource: "detail-" + AppModel.regionSlug(region), withExtension: "json"), region)
             let d = try JSONDecoder().decode([String: PlaceDetail].self, from: Data(contentsOf: url))
             XCTAssertTrue(Set(d.keys).isSubset(of: ids), "\(region) detail ids are core ids")
-            XCTAssertTrue(d.values.allSatisfy { $0.licenses.isEmpty }, "\(region): Indiana has no official license records")
+            XCTAssertTrue(d.values.allSatisfy { $0.licenses.allSatisfy { ["Vanderburgh County inspection report", "Porter County inspection report"].contains($0.source) } },
+                          "\(region): the only official records are Vanderburgh's and Porter's inspection reports")
             detailed += d.count
         }
         XCTAssertGreaterThan(detailed, 2_000, "places with a phone or website have a detail record")

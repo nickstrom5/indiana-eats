@@ -12,7 +12,8 @@ Rules the copy keeps (scripts/qa-site.py checks them):
 - Every number is counted from the data here, never typed in. Indiana has no statewide restaurant list, so our lists are "places we
   list": no sentence claims "every" or "all N" restaurants.
 - "Checked" only for the hand-checked lists (`hc`, a 2025-26 source or an official tourism listing for each place).
-- No inspection result is shown: no Indiana health department publishes results as data, and none posts a grade.
+- Inspection results come from two counties' published reports (Vanderburgh weekly, Porter monthly; Nick's yes 2026-11-07): the
+  county's own count of violations, dated, never a score or grade. Elsewhere none is shown, and none posts a grade.
 - "Serves alcohol" is never shown as yes or no: the ATC's permits aren't used.
 - Claims stay claims: founding years are tied to a dated source, and "first", "oldest" or "original" are the source's words.
 - Every page carries a hash-pinned Content-Security-Policy; inline scripts and styles are hashed after the page is final.
@@ -74,7 +75,12 @@ assert DETAIL_SRC, "data/app/detail-*.json are missing"
 def merged(r):
     """One place with its detail fields (phone, website; county records and inspection history where a state has them) put back."""
     out = dict(r)
-    out.update(DETAIL_SRC.get(r["id"]) or {})
+    d = dict(DETAIL_SRC.get(r["id"]) or {})
+    # the detail file's "in" is the inspection history ({"n", "h"}); the core's "in" is the latest result [jurisdiction, result, date]:
+    # keep both (the history once overwrote the latest result, so no result reached the site)
+    if "in" in d:
+        out["in_hist"] = d.pop("in")
+    out.update(d)
     return out
 
 
@@ -87,8 +93,12 @@ MI = ["", "MICHELIN Recommended", "Bib Gourmand", "1 MICHELIN Star", "2 MICHELIN
 DPH_URL = "https://www.in.gov/localhealth/"   # the state's list of local health departments (each with its own inspection page)
 FFX_URL = DPH_URL
 MI_URL = "https://guide.michelin.com/us/en"   # no MICHELIN Guide covers Indiana
-RESULTS = D.get("results") or []            # none in Indiana: no health department publishes results as data
-INS_THROUGH = max((D.get("inspections_through") or {}).values(), default="")
+RESULTS = D.get("results") or []            # the counties' own counts: "0 violations", "2 violations"
+INS_JUR = D.get("ins_jur") or []            # ["Vanderburgh County Health Department", "Porter County Health Department"]
+INS_THROUGH_ALL = D.get("inspections_through") or {}
+INS_THROUGH = max(INS_THROUGH_ALL.values(), default="")
+REPORTS = {"Vanderburgh County Health Department": "https://vanderburghhealth.org/food-inspection-report/",
+           "Porter County Health Department": "https://www.in.gov/localhealth/portercounty/food-service-division/food-service-inspections"}
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 NUM_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
 
@@ -180,7 +190,8 @@ class P:
         self.lic = r.get("lic") or []   # county records: [[list, number, type]]
         self.beer = r.get("liq") == 1    # an on-premises alcohol license (none in Indiana: no list)
         ins = r.get("in") if isinstance(r.get("in"), list) else None   # [jurisdiction, result index, date]: none in Indiana
-        self.ins = (RESULTS[ins[1]], ins[2]) if ins and len(ins) >= 3 and 0 <= ins[1] < len(RESULTS) else None
+        self.ins = ((RESULTS[ins[1]], ins[2], INS_JUR[ins[0]] if 0 <= ins[0] < len(INS_JUR) else "")
+                    if ins and len(ins) >= 3 and 0 <= ins[1] < len(RESULTS) else None)
 
     def featured_key(self):
         # the app's "Featured first": honored places, then documented founding year, then name
@@ -899,11 +910,11 @@ body = f"""{nav}
   </section>
   <section id="how">
     <h2>Where to look</h2>
-    <p class="sub">Start from the state's list of local health departments and open your county's. Some have search pages, Vanderburgh County posts weekly reports, and others answer requests. Reports mark each violation Priority, Priority Foundation or Core; a count of violations isn't a grade.</p>
+    <p class="sub">Start from the state's list of local health departments and open your county's. Some have search pages, <a href="{REPORTS["Vanderburgh County Health Department"]}" rel="noopener">Vanderburgh County</a> posts weekly reports, <a href="{REPORTS["Porter County Health Department"]}" rel="noopener">Porter County</a> monthly ones, and others answer requests. Reports mark each violation Priority, Priority Foundation or Core; a count of violations isn't a grade.</p>
   </section>
   <section id="lookup">
     <h2>What {BRAND} does show</h2>
-    <p>No inspection result: no Indiana health department publishes its results as data, and {BRAND} computes no grade of its own. Every place in the app and on the <a href="/explore/">web search</a> links the state's list of local health departments. The rest is hand-checked research and James Beard honors.</p>
+    <p>Vanderburgh and Porter counties' published reports: {plural(sum(1 for p in REST if p.ins), 'place')} matched to them by name and address show each inspection's date and the number of violations the county lists{(", with inspections through " + hdate(INS_THROUGH)) if INS_THROUGH else ""}, as published. A count of violations isn't a grade, and {BRAND} computes no grade of its own. Every other place in the app and on the <a href="/explore/">web search</a> links the state's list of local health departments. The rest is hand-checked research and James Beard honors.</p>
     <p class="fine">{other_guides("/" + INS_PATH)}</p>
   </section>
   </main>"""
@@ -1339,7 +1350,7 @@ faq = [
     ("Is Indiana Eats free?", "Completely: no price, no ads, no in-app purchases and no account to create. It's an iPhone and iPad app on its way to the App Store, with no Android version yet; until it's out, the web search here works in any browser."),
     ("Where do the lists come from?", f"Two kinds of source. The breaded tenderloin, drive-in, Hoosier pie, Amish country and oldest-places lists are our own research from {CHECKED}, with a dated 2025 or 2026 source or an Indiana tourism office's own page behind each place. The wider directory of {N_REST:,} restaurants starts from open map listings (Overture Maps), filtered to the kinds that proved reliable where states publish restaurant lists."),
     ("Where can I get a breaded tenderloin?", f"Our tenderloin list has {len(L['tenderloin'])} hand-checked places, from Nick's Kitchen in Huntington, which claims the sandwich, to Indianapolis drive-ins and Kokomo's King Tenderloin. In the web search, the list puts the nearest first once you share your location."),
-    ("How do I check an Indiana restaurant's inspection?", "Indiana's 95 local health departments inspect restaurants and publish their own reports, through a search page, a weekly or monthly report, or on request. None posts a grade, and none publishes results as data, so the app shows no inspection result and computes no grade. Every place links the state's list of local health departments."),
+    ("How do I check an Indiana restaurant's inspection?", "Indiana's 95 local health departments inspect restaurants and publish their own reports, through a search page, a weekly or monthly report, or on request. None posts a grade. Vanderburgh and Porter counties publish weekly and monthly reports, so places matched to them show each inspection's date and the county's count of violations, as published; the app computes no grade. Every place links the state's list of local health departments."),
     ("Does it show which places serve alcohol?", "No. The Indiana Alcohol and Tobacco Commission permits the bars and restaurants that pour alcohol, but its permits sit behind a search form we don't use, so the app doesn't say either way."),
     ("Does it show ratings and reviews?", "Not from us. Tapping a place opens Apple Maps' own card inside the app, with Apple's current ratings, hours, photos and directions. None of our lists is sorted by anyone's rating."),
     ("Does it need my location?", "No. Location only matters for putting the nearest places first. If you share it, it stays on your iPhone or iPad and never reaches us, and the app works fine without it. On this website, Near me reads your location inside your browser and nowhere else."),
@@ -1504,7 +1515,7 @@ body = f"""{nav}
     <h2>Check before you go</h2>
     <p>Restaurants open, close, change their hours and change their menus, and seasonal places keep seasons. Dishes and founding years are what each place or a named source said when we checked in {CHECKED}. We work to keep the lists right, but we can't promise that any listing is current or complete. Call the restaurant before you make the trip.</p>
     <h2>Inspections and public records</h2>
-    <p>No inspection result appears in the app or on this site: no Indiana health department publishes its results as data. We compute no grade, and each place links the state's list of local health departments. For official records, use each agency's own site.</p>
+    <p>Inspection results in the app and on this site are Vanderburgh and Porter counties' own: the number of violations each lists for an inspection in its published reports, dated. We compute no score or grade, and every place links the state's list of local health departments. For official records, use each agency's own site.</p>
     <h2>Other people's content</h2>
     <p>Ratings, reviews, hours and photos in each place card come from Apple Maps and are Apple's and its providers', under Apple's terms. Restaurant names and trademarks belong to their owners. James Beard Foundation and James Beard Award are trademarks of the James Beard Foundation. {BRAND} is not affiliated with any restaurant, chain, award body or government agency.</p>
     <h2>Data sources and licenses</h2>
@@ -1512,6 +1523,7 @@ body = f"""{nav}
       <li>Overture Maps Foundation places data, under the Community Data License Agreement, Permissive 2.0, including data from Meta, Microsoft, DAC, BrightQuery, AllThePlaces (CC0 1.0) and Foursquare (Apache 2.0).</li>
       <li>Overture Maps Foundation divisions, used for the state and county outlines on the map, under the Open Database License: © OpenStreetMap contributors, Overture Maps Foundation.</li>
       <li>Overture Maps Foundation addresses data, compiled from open address sources under permissive licenses (see docs.overturemaps.org/attribution), used to place records on the map.</li>
+      <li>The Vanderburgh County Health Department's weekly food inspection media reports and the Porter County Health Department's monthly food service inspection reports{(" (inspections through " + hdate(INS_THROUGH) + ")") if INS_THROUGH else ""}: each inspection's date, purpose and number of violations, shown as published and matched to map listings by name and address (Porter's October 2025 report has no readable text and is left out).</li>
       <li>The James Beard Foundation's awards: honors reported as facts.</li>
       <li>Breaded tenderloins, drive-ins, Hoosier pie, Amish country and founding years: our own research, from dated 2025-26 pages and the pages of Indiana's tourism offices (Visit Indiana, the Elkhart County CVB, Visit Shipshewana), with a source recorded for every place.</li>
     </ul>
